@@ -1,0 +1,151 @@
+{% extends "core/base.html" %}
+{% load static %}
+{% block css %} 
+<link rel="stylesheet" href="{% static 'css/owl.carousel.min.css' %}">
+<link rel="stylesheet" href="{% static 'css/owl.theme.default.min.css' %}">
+{% endblock css %}
+
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+  <h1 class="h3 mb-0 text-gray-800">Livros Disponíveis</h1>
+  <a href="{% url 'books:cart' %}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
+    <i class="fas fa-download fa-sm text-white-50"></i> Meu Carrinho (${cart ? cart.items.length:0})
+  </a>
+</div>
+
+<!-- Formulário de Filtro por Nome de Livro -->
+<form method="GET" action="" class="mb-4">
+  <div class="input-group">
+    <input type="text" name="q" class="form-control" placeholder="Buscar livro pelo nome do livro ou Autor" value="{{ request.GET.q }}">
+    <div class="input-group-append">
+      <button class="btn btn-primary" type="submit">Buscar</button>
+    </div>
+  </div>
+</form>
+
+<div class="row">
+  <div class="col-md-12">
+    <div class="owl-carousel">
+      {% for book in books %}
+        <div class="card mb-4 h-100">
+          <img src="https://covers.openlibrary.org/b/id/{{ book.cover_id }}-L.jpg" class="card-img-top" alt="{{ book.title }}">
+          <div class="card-body h-100">
+            <h5 class="card-title">{{ book.title }}</h5>
+            <p class="card-text">{{ book.author }}</p>
+            <button type="button" @click="addBook('{{book.id}}', `{{book.author}}`, '{{book.cover_url}}', '{{book.price}}', `{{book.title}}`)" class="btn btn-primary">Adicionar ao Carrinho</button>
+          </div>
+        </div>
+      {% empty %}
+        <p>Nenhum livro disponível.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Pagination Controls -->
+<div class="pagination">
+  <span class="step-links">
+    {% if books.has_previous %}
+      <a href="?page=1">&laquo; primeiro</a>
+      <a href="?page={{ books.previous_page_number }}">anterior</a>
+    {% endif %}
+
+    <span class="current">
+      Página {{ books.number }} de {{ books.paginator.num_pages }}
+    </span>
+
+    {% if books.has_next %}
+      <a href="?page={{ books.next_page_number }}">próximo</a>
+      <a href="?page={{ books.paginator.num_pages }}">último &raquo;</a>
+    {% endif %}
+  </span>
+</div>
+
+{% csrf_token %}
+
+{% endblock content %}
+
+{% block js %}
+<script src="{% static 'js/owl.carousel.min.js' %}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.7/axios.min.js" integrity="sha512-DdX/YwF5e41Ok+AI81HI8f5/5UsoxCVT9GKYZRIzpLxb8Twz4ZwPPX+jQMwMhNQ9b5+zDEefc+dcvQoPWGNZ3g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{% static 'js/vue.js' %}"></script>
+
+<script>
+  var app =
+   new Vue({
+    delimiters: ["${", "}"],
+    el: "#app",
+    data: {
+      isAuthenticated: {{user.is_authenticated|safe|lower}},
+      cart: null
+    },
+    methods: {
+      getCSRFTOKEN() {
+        return document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+      },
+      fetchBooksInLocalStorage() {
+        if(!this.isAuthenticated) {
+          this.cart = JSON.parse(localStorage.getItem('cart'))
+          if(!localStorage.getItem('cart')) {
+            this.cart = {
+              id: Math.floor(Math.random() * 10000000),
+              total_items: 0,
+              items: [],
+            }
+            this.updateLocalStorage()
+          }
+        } else {
+          axios.get("{% url 'books:carts-list' %}").then((response) => {
+            this.cart = response.data[0]
+          })
+        }
+      },
+      updateLocalStorage() {
+        localStorage.setItem('cart', JSON.stringify(this.cart))
+      },
+      addBook(bookID, author, cover_url, price, title) {
+        if(!this.isAuthenticated) {
+          
+          let hasBook = this.cart.items.find((b) => b.id == bookID)
+          
+          if(hasBook) {
+            hasBook.quantity += 1
+          }  else {
+            
+            this.cart.items.push({
+              quantity: 1,
+              id: bookID,
+              author: author,
+              cover_url: cover_url,
+              title: title,
+            })
+            
+          }
+          this.updateLocalStorage()
+        } else {
+          {% if user.my_cart %}
+            axios({
+              method: 'post',
+              url: "{% url 'books:carts-add-book' user.my_cart.id %}",
+              headers: {"X-CSRFToken": this.getCSRFTOKEN()},
+              data: { book_id: bookID }
+            }).then((response) => {
+              console.log('livro adicionado')
+              this.cart = response.data
+            })
+          {% endif %}
+        }
+      },
+    },
+    mounted() {
+      $(document).ready(function(){
+        $(".owl-carousel").owlCarousel({
+          items: 5,
+          margin: 10
+        });
+      });
+      this.fetchBooksInLocalStorage()
+    },
+  });
+</script>
+{% endblock js %}

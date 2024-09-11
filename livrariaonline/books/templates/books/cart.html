@@ -1,0 +1,86 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block content %}
+  <div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Meu Carrinho (${cart ? cart.items.length:0})</h1>
+  </div>
+
+  <div class="row" v-if="cart">
+      <div class="col-md-3" v-for="item, index in cart.items">
+        <div class="card mb-4 h-100">
+          <img :src="item.cover_url" class="card-img-top" :alt="item.title">
+          <div class="card-body">
+            <h5 class="card-title">${ item.title }</h5>
+            <p class="card-text">${ item.author }</p>
+            <p>Quantidade: ${ item.quantity }</p>            
+            <button type="buttom" class="btn btn-danger" @click="removeBook(item.id, index)">Remover</button>
+          </div>
+        </div>
+      </div>
+      <p v-if="!cart.items.length">Seu carrinho está vazio.</p>
+  </div>
+
+  {% if user.is_authenticated %}
+    {% csrf_token %}
+    <a href="{% url 'books:checkout' %}" class="btn btn-success">Finalizar Compra</a>
+  {% else %}
+    <p>Faça <a href="/login?next={% url 'books:checkout' %}">login</a> para finalizar sua compra.</p>
+  {% endif %}
+  
+{% endblock content %}
+
+
+{% block js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.7/axios.min.js" integrity="sha512-DdX/YwF5e41Ok+AI81HI8f5/5UsoxCVT9GKYZRIzpLxb8Twz4ZwPPX+jQMwMhNQ9b5+zDEefc+dcvQoPWGNZ3g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{% static 'js/vue.js' %}"></script>
+
+<script>
+  var app = new Vue({
+    delimiters: ["${", "}"],
+    el: "#app",
+    data: {
+      isAuthenticated: {{user.is_authenticated|safe|lower}},
+      cart: null
+    },
+    methods: {
+      getCSRFTOKEN() {
+        return document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+      },
+      removeBook(book_id, index) {
+        if(!this.isAuthenticated) {
+          this.cart.items.splice(index, 1)
+          this.updateLocalStorage()
+        } else {
+          {% if user.my_cart %}
+            axios({
+              method: 'post',
+              url: "{% url 'books:carts-remove-book' user.my_cart.id %}",
+              headers: {"X-CSRFToken": this.getCSRFTOKEN()},
+              data: { book_id: book_id }
+            }).then((response) => {
+              console.log('livro removido')
+              this.cart = response.data
+            })
+          {% endif %}
+        }
+      },
+      fetchBooks() {
+        if(!this.isAuthenticated) {
+          this.cart = JSON.parse(localStorage.getItem('cart'))
+        } else {
+          axios.get("{% url 'books:carts-list' %}").then((response) => {
+            this.cart = response.data[0]
+          })
+        }
+      },
+      updateLocalStorage() {
+        localStorage.setItem('cart', JSON.stringify(this.cart))
+      },
+    },
+    mounted() {
+      this.fetchBooks()
+    },
+  });
+</script>
+{% endblock js %}

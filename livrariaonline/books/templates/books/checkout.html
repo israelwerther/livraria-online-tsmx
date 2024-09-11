@@ -1,0 +1,107 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+
+{% block css %}
+   <style>
+    .cp {
+      cursor: pointer;
+    }
+    .selected {
+      border: 1px solid #444;
+    }
+   </style>
+{% endblock css %}
+  
+
+{% block content %}
+  <div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Checkout</h1>
+  </div>
+
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <div class="row">
+            <div class="col-12 d-flex justify-content-between">
+              <h5>Dados de pagamento</h5>
+              <h3>TOTAL: R$ {{user.my_cart.total|floatformat:2}}</h3>
+            </div>
+
+            <div class="col-12">
+              <div class="row">
+                <div class="col-4">
+                  <div class="card shadow cp" :class="{ 'selected': paymentType == 'card' }" @click="paymentType = 'card'">
+                    <div class="card-body py-5">
+                      CARTÃO
+                    </div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="card shadow cp" :class="{ 'selected': paymentType == 'pix' }" @click="paymentType = 'pix'">
+                    <div class="card-body py-5">
+                      PIX
+                    </div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="card shadow cp" :class="{ 'selected': paymentType == 'boleto' }" @click="paymentType = 'boleto'">
+                    <div class="card-body py-5">
+                      BOLETO
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="row my-4">
+            <div class="col-12 d-flex justify-content-center">
+              <button @click="finalizarCompra()" :disabled="loading" type="button" class="btn btn-primary">FINALIZAR COMPRA</button>
+            </div>
+          </div>          
+        </div>
+      </div>
+    </div>
+  </div>
+  {% csrf_token %}
+{% endblock content %}
+
+
+{% block js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.7/axios.min.js" integrity="sha512-DdX/YwF5e41Ok+AI81HI8f5/5UsoxCVT9GKYZRIzpLxb8Twz4ZwPPX+jQMwMhNQ9b5+zDEefc+dcvQoPWGNZ3g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="{% static 'js/vue.js' %}"></script>
+
+<script>
+  var app = new Vue({
+    delimiters: ["${", "}"],
+    el: "#app",
+    data: {
+      paymentType: 'card',
+      loading: false,
+    },
+    methods: {
+      getCSRFTOKEN() {
+        return document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+      },
+      finalizarCompra() {
+        // TODO, chamar API para salvar a compra do cara
+        this.loading = true
+        axios({
+          method: 'post',
+          url: "{% url 'books:carts-finalizar-compra' %}",
+          headers: {"X-CSRFToken": this.getCSRFTOKEN()},
+          data: { payment_type: this.paymentType }
+        }).then((response) => {
+          window.location.href = "{% url 'books:my_orders' %}"
+        })
+      }
+    },
+    mounted() {
+      localStorage.removeItem('cart')
+    },
+  });
+</script>
+{% endblock js %}

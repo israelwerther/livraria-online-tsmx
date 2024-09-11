@@ -1,0 +1,20 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="d-sm-flex align-items-center justify-content-between mb-4">
+  <h1 class="h3 mb-0 text-gray-800">Minhas Compras</h1>
+</div>
+
+{% if orders %}
+  <div class="list-group">
+    {% for order in orders %}
+      <a href="{% url 'books:order_success' order.id %}" class="list-group-item list-group-item-action">
+        Pedido #{{ order.id }} - {{ order.created_at|date:"d/m/Y H:i" }}
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <p>Você ainda não fez nenhuma compra.</p>
+{% endif %}
+{% endblock %}
